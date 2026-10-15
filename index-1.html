@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#1565c0"><title>Evidence kilometrů</title>
+<style>
+*{box-sizing:border-box}body{font-family:system-ui,sans-serif;max-width:540px;margin:auto;padding:18px;background:#f4f6f9;color:#18212b}h1{color:#1565c0;margin:0} .muted{color:#667085;font-size:14px}.card{background:white;padding:16px;border-radius:15px;margin:12px 0;box-shadow:0 2px 10px #0001}label{display:block;font-weight:650;margin:10px 0 5px}input{width:100%;padding:13px;border:1px solid #ccd3da;border-radius:10px;font-size:17px}button{width:100%;padding:13px;border:0;border-radius:10px;background:#1565c0;color:white;font-size:16px;font-weight:700;margin-top:10px}.secondary{background:#e9eef5;color:#18212b}.danger{background:#a32929}.total{font-size:24px;color:#1565c0;font-weight:800}.row{padding:10px 0;border-bottom:1px solid #e7e9ed}.row:last-child{border:0}
+</style></head><body>
+<h1>Evidence kilometrů</h1><p class="muted">Denní evidence směn a výjezdů</p>
+<section class="card" id="startCard"><b>Zahájení směny</b><label for="vehicle">Číslo vozidla</label><input id="vehicle" placeholder="Např. 318"><label for="start">Počáteční stav tachometru (km)</label><input id="start" type="number" inputmode="numeric" placeholder="Např. 125430"><button id="begin">Zahájit směnu</button></section>
+<section class="card" id="activeCard" hidden><b id="vehicleTitle"></b><p class="muted" id="startTime"></p><p id="last"></p><label for="newKm">Nový stav tachometru po výjezdu</label><input id="newKm" type="number" inputmode="numeric" placeholder="Zadej stav km"><button id="add">Přidat výjezd</button><p class="total" id="total"></p><button class="secondary" id="edit">Opravit poslední výjezd</button><button class="danger" id="close">Ukončit směnu</button></section>
+<section class="card"><b>Výjezdy aktuální směny</b><div id="trips" class="muted" style="margin-top:8px"></div></section>
+<section class="card"><b>Denní přehled uzavřených směn</b><div id="history" style="margin-top:8px"></div><button class="secondary" id="export">Exportovat denní přehled do CSV</button></section>
+<p class="muted">Záznamy se ukládají v tomto prohlížeči. Exportuj si pravidelně přehled jako zálohu.</p>
+<script>
+const KEY='evidenceKm_v2', $=id=>document.getElementById(id);
+let s={vehicle:'',last:null,total:0,trips:[],closed:[],start:null,startedAt:null,active:false};
+try{Object.assign(s,JSON.parse(localStorage.getItem(KEY)||'{}'))}catch(e){}
+if(!Array.isArray(s.trips))s.trips=[];if(!Array.isArray(s.closed))s.closed=[];
+if(s.active===undefined)s.active=s.last!==null;if(s.start===undefined)s.start=s.last===null?null:s.last-(s.total||0);
+const stamp=x=>new Date(x).toLocaleString('cs-CZ',{dateStyle:'short',timeStyle:'short'});
+function save(){localStorage.setItem(KEY,JSON.stringify(s));render()}
+function safe(x){return String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function render(){
+let active=s.active&&s.last!==null;$('startCard').hidden=active;$('activeCard').hidden=!active;
+if(active){$('vehicleTitle').textContent='Vozidlo: '+s.vehicle;$('startTime').textContent='Začátek směny: '+stamp(s.startedAt);$('last').textContent='Poslední stav: '+s.last+' km';$('total').textContent='Celkem za směnu: '+s.total+' km'}
+$('trips').innerHTML=s.trips.length?s.trips.map((t,i)=>`<div class="row"><b>${i+1}. výjezd</b> · ${stamp(t.time||Date.now())}<br>${t.from} → ${t.to} km · <b>+${t.diff} km</b></div>`).join(''):'<p class="muted">Zatím žádné výjezdy.</p>';
+$('edit').disabled=!s.trips.length;
+$('history').innerHTML=s.closed.length?s.closed.slice().reverse().map(x=>`<div class="row"><b>${stamp(x.startedAt)} · vozidlo ${safe(x.vehicle)}</b><br>${x.start} → ${x.end} km · <b>celkem ${x.total} km</b></div>`).join(''):'<p class="muted">Zatím není uzavřená žádná směna.</p>';
+}
+$('begin').onclick=()=>{let v=$('vehicle').value.trim(),raw=$('start').value,k=Number(raw);if(!v)return alert('Zadej číslo vozidla.');if(raw===''||!Number.isSafeInteger(k)||k<0)return alert('Zadej platný počáteční stav km.');s={...s,vehicle:v,start:k,last:k,total:0,trips:[],startedAt:new Date().toISOString(),active:true};save()};
+$('add').onclick=()=>{let raw=$('newKm').value,k=Number(raw);if(!s.active)return alert('Nejdřív zahaj směnu.');if(raw===''||!Number.isSafeInteger(k)||k<s.last)return alert('Nový stav musí být celé číslo a nesmí být nižší než předchozí stav.');let d=k-s.last;s.trips.push({from:s.last,to:k,diff:d,time:new Date().toISOString()});s.last=k;s.total+=d;$('newKm').value='';save()};
+$('edit').onclick=()=>{if(!s.trips.length)return;let t=s.trips[s.trips.length-1],raw=prompt('Správný stav tachometru posledního výjezdu:',t.to);if(raw===null)return;let k=Number(raw);if(raw.trim()===''||!Number.isSafeInteger(k)||k<t.from)return alert('Zadej platný stav km.');s.total-=t.diff;t.to=k;t.diff=k-t.from;s.total+=t.diff;s.last=k;save()};
+$('close').onclick=()=>{if(!confirm('Ukončit směnu vozidla '+s.vehicle+'? Celkem '+s.total+' km.'))return;s.closed.push({vehicle:s.vehicle,start:s.start,end:s.last,total:s.total,startedAt:s.startedAt,endedAt:new Date().toISOString()});s.vehicle='';s.start=null;s.last=null;s.total=0;s.trips=[];s.startedAt=null;s.active=false;save()};
+$('export').onclick=()=>{let rows=[['Datum a čas zahájení','Vozidlo','Počáteční km','Konečné km','Celkem km'],...s.closed.map(x=>[stamp(x.startedAt),x.vehicle,x.start,x.end,x.total])];let csv='\ufeff'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\r\n');let a=document.createElement('a'),url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.href=url;a.download='denni-evidence-km.csv';a.click();URL.revokeObjectURL(url)};
+render();
+</script></body></html>
