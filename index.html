@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#1565c0"><title>Evidence kilometrů</title>
+<html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#1565c0"><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icons/icon-192.png"><title>Evidence kilometrů</title>
 <style>
 *{box-sizing:border-box}body{font-family:system-ui,sans-serif;max-width:540px;margin:auto;padding:18px;background:#f4f6f9;color:#18212b}h1{color:#1565c0;margin:0} .muted{color:#667085;font-size:14px}.card{background:white;padding:16px;border-radius:15px;margin:12px 0;box-shadow:0 2px 10px #0001}label{display:block;font-weight:650;margin:10px 0 5px}input{width:100%;padding:13px;border:1px solid #ccd3da;border-radius:10px;font-size:17px}button{width:100%;padding:13px;border:0;border-radius:10px;background:#1565c0;color:white;font-size:16px;font-weight:700;margin-top:10px}.secondary{background:#e9eef5;color:#18212b}.danger{background:#a32929}.total{font-size:24px;color:#1565c0;font-weight:800}.row{padding:10px 0;border-bottom:1px solid #e7e9ed}.row:last-child{border:0}
 </style></head><body>
@@ -36,4 +36,9 @@ $('close').onclick=()=>{if(!confirm('Ukončit směnu vozidla '+s.vehicle+'? Celk
 $('clearAll').onclick=()=>{if(!confirm('Opravdu vymazat veškerou evidenci? Smaže se aktuální směna i celá historie. Tuto akci nelze vrátit.'))return;localStorage.removeItem(KEY);s={vehicle:'',last:null,total:0,trips:[],closed:[],start:null,startedAt:null,active:false};$('vehicle').value='';$('start').value='';$('newKm').value='';render();alert('Veškerá evidence byla vymazána.')};
 $('export').onclick=()=>{let rows=[['Datum a čas zahájení','Vozidlo','Počáteční km','Konečné km','Celkem km'],...s.closed.map(x=>[stamp(x.startedAt),x.vehicle,x.start,x.end,x.total])];let csv='\ufeff'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\r\n');let a=document.createElement('a'),url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.href=url;a.download='denni-evidence-km.csv';a.click();URL.revokeObjectURL(url)};
 render();
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js').catch(err => console.log('PWA offline režim:', err));
+  });
+}
 </script></body></html>
